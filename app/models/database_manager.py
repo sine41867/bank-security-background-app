@@ -18,13 +18,13 @@ class DatabaseManager:
         except Exception as e:
 
             #testing
-            print(str())
+            print(str(e))
 
     def load_known_faces(self):
 
         conn = self.create_conection()
         if not conn:
-            return
+            return None, None, None
 
         known_faces = []
         known_names = []
@@ -66,8 +66,10 @@ class DatabaseManager:
             print(f"Error loading known faces: {e}")
         
         conn.close()
-        print("Success_02")
+        
         return known_faces, known_names, face_types
+        
+       
 
     def record_alert(self, alert):
         conn = self.create_conection()
@@ -75,8 +77,8 @@ class DatabaseManager:
             return
         
         try:
-            query = "INSERT INTO tbl_alerts (type, description, photo, time, branch_id) VALUES (%s, %s, %s, %s, %s)"
-            data = (alert.alert_type, alert.description, alert.photo, alert.time, alert.branch_id,)
+            query = "INSERT INTO tbl_alerts (type, description, photo, time, branch_id, generated_by) VALUES (%s, %s, %s, %s, %s, %s)"
+            data = (alert.alert_type, alert.description, alert.photo, alert.time, alert.branch_id,alert.generated_by,)
             cursor = conn.cursor()
             cursor.execute(query, data)
             conn.commit()

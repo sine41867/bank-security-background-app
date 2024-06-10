@@ -1,2 +1,2 @@
 class Config:
-    branch_id = 179
+    BRANCH_ID = "179"

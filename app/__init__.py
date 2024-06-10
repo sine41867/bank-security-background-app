@@ -24,8 +24,10 @@ def app():
     alert_generator = AlertGenerator()
 
     while True:
-        real_time_capture(camera, face_recognizer, db_manager, alert_generator)
-
+        try:
+            real_time_capture(camera, face_recognizer, db_manager, alert_generator)
+        except Exception as e:
+             print(str(e))
     
     camera.release()
 
