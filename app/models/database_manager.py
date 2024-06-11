@@ -76,19 +76,21 @@ class DatabaseManager:
             return
         
         try:
-            query = "SELECT type, description, branch_id, time FROM tbl_alerts ORDER BY alert_id DESC"
+            query = "SELECT type, description, branch_id, time, checked_by FROM tbl_alerts ORDER BY alert_id DESC"
             cursor = conn.cursor()
             cursor.execute(query)
             row = cursor.fetchone()
             cursor.close()
             conn.close()
 
+
             alert = Alert(
                 alert_type=row[0],
                 description=row[1],
                 branch_id=row[2],
                 time=row[3],
-                photo=None
+                photo=None,
+                is_checked=row[4]
             )
 
             return alert
