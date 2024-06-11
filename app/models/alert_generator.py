@@ -1,12 +1,34 @@
 import cv2
 import requests
+from app.models.database_manager import DatabaseManager
 
 class AlertGenerator:
+    def __init__(self):
+        db_manager = DatabaseManager()
+        self.last_alert = db_manager.get_last_alert()
+
+    
+    def set_last_alert(self):
+        db_manager = DatabaseManager()
+        self.last_alert = db_manager.get_last_alert()
+
+    def is_new_alert(self, alert):
+        if alert.alert_type == self.last_alert.alert_type and alert.description == self.last_alert.description and alert.branch_id == self.last_alert.branch_id:
+            return False
+        
+        return True
+        
     def generate_alert(self,alert, db_manager):
-        db_manager.record_alert(alert)
-        message = f"New Alert Generated : {alert.time}"
-        self.update_flask_data(message)
-        print(f"Alert: Recognized {alert.alert_type} {alert.description}")
+        if self.is_new_alert(alert):
+            db_manager.record_alert(alert)
+            self.set_last_alert()
+            message = f"New Alert Generated : {alert.time}"
+            try:
+                self.update_flask_data(message)
+            except Exception as e:
+                print(str(e))
+
+        print(f"Alert: Recognized {alert.alert_type} {alert.description} {alert.time}")
 
     def update_flask_data(self,message):
         response = requests.post(f'http://127.0.0.1:5000/update-data/{message}')
@@ -18,14 +40,3 @@ class AlertGenerator:
             print("Failed to update data")
         '''
 
-    #testing
-    @staticmethod
-    def generate_alert_test(name, face_type, frame):
-        #file_name = name + " " + face_type + " "+ str(datetime.time.now()) + ".jpg"
-        file_name = name + " " + face_type + ".jpg"
-        print(file_name)
-        success = cv2.imwrite(file_name, frame)
-        if not success:
-            print("Error Saving.....")
-
-        print(f"Alert: Recognized {face_type} {name}")

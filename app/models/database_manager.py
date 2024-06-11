@@ -3,6 +3,7 @@ import numpy as np
 from io import BytesIO
 from PIL import Image
 import face_recognition
+from app.models.alert import Alert
 
 class DatabaseManager:
     def __init__(self):
@@ -69,8 +70,33 @@ class DatabaseManager:
         
         return known_faces, known_names, face_types
         
-       
+    def get_last_alert(self):
+        conn = self.create_conection()
+        if not conn:
+            return
+        
+        try:
+            query = "SELECT type, description, branch_id, time FROM tbl_alerts ORDER BY alert_id DESC"
+            cursor = conn.cursor()
+            cursor.execute(query)
+            row = cursor.fetchone()
+            cursor.close()
+            conn.close()
 
+            alert = Alert(
+                alert_type=row[0],
+                description=row[1],
+                branch_id=row[2],
+                time=row[3],
+                photo=None
+            )
+
+            return alert
+
+        except Exception as e:
+            #testing
+            print(str(e))
+            
     def record_alert(self, alert):
         conn = self.create_conection()
         if not conn:
