@@ -29,7 +29,6 @@ def app():
         except Exception as e:
              print(str(e))
     
-    camera.release()
 
 def real_time_capture(camera, face_recognizer, db_manager, alert_generator):
     frame = camera.get_frame()
@@ -41,6 +40,13 @@ def real_time_capture(camera, face_recognizer, db_manager, alert_generator):
             cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
             
             if name != "Unknown":
+                
+                #for NFR test setup
+                #detected_times.append(datetime.datetime.now())
+
                 ret, buffer = cv2.imencode('.jpg', frame)
                 alert = Alert(face_type, buffer.tobytes(), str(datetime.datetime.now()), name )
+                
+                
+
                 alert_generator.generate_alert(alert, db_manager)
