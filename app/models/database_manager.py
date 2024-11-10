@@ -4,6 +4,7 @@ from io import BytesIO
 from PIL import Image
 import face_recognition
 from app.models.alert import Alert
+import logging
 
 class DatabaseManager:
     def __init__(self):
@@ -17,9 +18,7 @@ class DatabaseManager:
             conn = pymysql.connect(host= self.db_host, user = self.db_user, password= self.db_password, database= self.db_name) 
             return conn
         except Exception as e:
-
-            #testing
-            print(str(e))
+            logging.info(str(e))
 
     def load_known_faces(self):
 
@@ -63,8 +62,7 @@ class DatabaseManager:
                     face_types.append(face_type)
 
         except Exception as e:
-            #testing
-            print(f"Error loading known faces: {e}")
+            logging.info(f"Error loading known faces: {e}")
         
         conn.close()
         
@@ -96,8 +94,7 @@ class DatabaseManager:
             return alert
 
         except Exception as e:
-            #testing
-            print(str(e))
+            logging.info(str(e))
             
     def record_alert(self, alert):
         conn = self.create_conection()
@@ -113,8 +110,7 @@ class DatabaseManager:
             conn.close()
 
         except Exception as e:
-            #testing
-            print(str(e))
+            logging.info(str(e))
 
 
 

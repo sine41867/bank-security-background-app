@@ -1,6 +1,6 @@
-import cv2
 import requests
 from app.models.database_manager import DatabaseManager
+import logging
 
 class AlertGenerator:
     
@@ -26,17 +26,16 @@ class AlertGenerator:
             try:
                 self.update_flask_data(message)
             except Exception as e:
-                print(str(e))
+                logging.error(str(e))
 
-        print(f"Alert: Recognized {alert.alert_type} {alert.description} {alert.time}")
+        logging.info(f"Alert: Recognized {alert.alert_type} {alert.description} {alert.time}")
 
     def update_flask_data(self,message):
         response = requests.post(f'http://127.0.0.1:5000/update-data/{message}')
 
-        '''
         if response.status_code == 200:
-            print("Data updated successfully")
+            logging.info("Data updated successfully")
         else:
-            print("Failed to update data")
-        '''
+            logging.info("Failed to update data")
+       
 

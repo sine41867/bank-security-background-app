@@ -2,6 +2,6 @@ from app import app
 from test import tester_v1
 
 if __name__ == "__main__":
-    #app()
+    app()
 
-    tester_v1()
+    #tester_v1()
