@@ -6,6 +6,9 @@ class CameraHandler:
 
     def get_frame(self):
         ret, frame = self.video_capture.read()
+        if not ret:
+            return "Error"
+        
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         return frame
 
