@@ -2,12 +2,49 @@ import cv2
 import tensorflow as tf
 import numpy as np
 import os
+import json
+from keras._tf_keras.keras.models import model_from_json
+from keras._tf_keras.keras.layers import BatchNormalization
+from keras._tf_keras.keras.utils import custom_object_scope
+from keras._tf_keras.keras.models import load_model
+#from models import model_from_json
 
+'''
+# Load the model configuration
+with open('model_config.json', 'r') as f:
+    model_config = json.load(f)
+
+# Modify the name of BatchNormalization layers
+for layer in model_config['config']['layers']:
+    if layer['class_name'] == 'BatchNormalization':
+        if 'name' in layer['config'] and '/' in layer['config']['name']:
+            layer['config']['name'] = layer['config']['name'].replace('/', '_')
+
+# Save the updated configuration back to a file (if needed)
+with open('updated_model_config.json', 'w') as f:
+    json.dump(model_config, f)
+
+# Load the model with the updated configuration
+model = model_from_json(json.dumps(model_config))
+
+# If you have weights to load, you can do so here
+# model.load_weights('path_to_weights.h5')
+
+'''
 # Suppress TensorFlow logging output
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # 0 = all messages are logged (default behavior), 1 = INFO messages are not printed, 2 = INFO and WARNING messages are not printed, 3 = INFO, WARNING, and ERROR messages are not printed
 
+def CustomBatchNormalization(*args, **kwargs):
+    kwargs['name'] = kwargs['name'].replace('/', '_')  # Replace `/` with `_`
+    return BatchNormalization(*args, **kwargs)
+
+
+with custom_object_scope({'TFOpLambda': tf.keras.layers.Lambda, 'BatchNormalization': CustomBatchNormalization}):
+    model = load_model(r'app\ai_models\model_fear.h5')
+
+
 # Load the trained model
-model = tf.keras.models.load_model('fear_detection_mobilenetv3.h5')
+#model = tf.keras.models.load_model(r'app\ai_models\model_fear.h5')
 
 # Define paths
 face_cascade_path = 'haarcascade_frontalface_default.xml'

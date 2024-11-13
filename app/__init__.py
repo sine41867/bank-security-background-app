@@ -28,43 +28,20 @@ pose = mp_pose.Pose()
 db_manager = DatabaseManager()
 alert_generator = AlertGenerator()
 
-def app_v2():
-    
-    db_manager = DatabaseManager()
-    
-    known_faces, known_names, face_types = db_manager.load_known_faces()
-    
-    if not known_faces:
-        logging.info('No known faces loaded from the database.')
-        return
-
-    face_recognizer = FaceRecognizer(known_faces, known_names, face_types)
-    
-    camera = CameraHandler()
-
-    alert_generator = AlertGenerator()
-
-    while True:
-        try:
-            real_time_capture(camera, face_recognizer, db_manager, alert_generator)
-        except Exception as e:
-             logging.error(str(e))
-
 
 def app():
     
     known_faces, known_names, face_types = db_manager.load_known_faces()
     
     if not known_faces:
-        #testing
-        print('No known faces loaded from the database.')
+        
+        logging.info('No known faces loaded from the database.')
 
     face_recognizer = FaceRecognizer(known_faces, known_names, face_types)
 
     cap = cv2.VideoCapture(0)
     
     interval_seconds = 2
-    abnormal_times = 0
 
     last_frame_time = time.time()
     while cap.isOpened():
@@ -78,31 +55,17 @@ def app():
             if current_time - last_frame_time >= interval_seconds:
                 last_frame_time = current_time
                 
-                abnormal_fraction = real_time_abnormal_detector(frame)
-                real_time_face_detector(frame, face_recognizer, db_manager, alert_generator)
-
-                #testing
-                print(f'Abnormal Fraction : {abnormal_fraction}')
-
-                if abnormal_fraction >= 0.5:
-                    abnormal_times += 1
-                else:
-                    abnormal_times = 0
-                
-                #testing
-                print(f'Abnormal Times : {abnormal_times}')
-                cv2.imshow("Abnormal Behavior Detection", frame)
+                real_time_abnormal_detector_one_person(frame)
+                real_time_face_detector(frame, face_recognizer)
 
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
                 
 
         except Exception as e:
-            #testing
-            print(str(e))
+            logging.error(str(e))
             
     cap.release()
-    cv2.destroyAllWindows()
 
 
 def real_time_abnormal_detector(frame):
@@ -142,15 +105,36 @@ def real_time_abnormal_detector(frame):
                 cv2.rectangle(frame, (x, y), (x_max, y_max), color, 2)
                 cv2.putText(frame, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-    if people_count != 0:
-        #testing
-        print(f'people count : {people_count}\t abnormal count : {abnormal_count}')
-
-        return (abnormal_count/people_count)
-    else:
-        return 0
+    if people_count == 0 or abnormal_count == 0:
+        return
     
-def real_time_face_detector(frame, face_recognizer, db_manager, alert_generator):
+    abnormal_percentage = abnormal_count*100/people_count
+
+    print(f"Abnormal Percentage : {abnormal_percentage}")
+    logging.info(f"Abnormal Percentage : {abnormal_percentage}")
+
+    if abnormal_percentage >= 50:
+            ret, buffer = cv2.imencode('.jpg', frame)
+            alert = Alert("Abnormal", buffer.tobytes(), str(datetime.datetime.now()), (str(abnormal_percentage)+' %') )
+            alert_generator.generate_alert(alert, db_manager)
+
+def real_time_abnormal_detector_one_person(frame):
+
+    feature_vector = extract_pose_features(frame)
+
+    prediction = behavior_model.predict(np.expand_dims(feature_vector, axis=0))
+    is_normal = prediction[0][0] > 0.5 
+
+    if is_normal:
+        return
+
+    logging.info(f"Abnormal Behavior Detected")
+
+    ret, buffer = cv2.imencode('.jpg', frame)
+    alert = Alert("Abnormal", buffer.tobytes(), str(datetime.datetime.now()), "Abnormal behavior detected" )
+    alert_generator.generate_alert(alert, db_manager)
+
+def real_time_face_detector(frame, face_recognizer):
     
     face_locations, face_names, face_types = face_recognizer.recognize_faces(frame)
 
@@ -166,7 +150,7 @@ def real_time_face_detector(frame, face_recognizer, db_manager, alert_generator)
                 #testing
                 print(f'{alert.alert_type}, {alert.description}, {alert.time}')
 
-                #alert_generator.generate_alert(alert, db_manager)
+                alert_generator.generate_alert(alert, db_manager)
 
 def extract_pose_features(image):
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -197,3 +181,25 @@ def real_time_capture(camera, face_recognizer, db_manager, alert_generator):
                 alert = Alert(face_type, buffer.tobytes(), str(datetime.datetime.now()), name )
                 
                 alert_generator.generate_alert(alert, db_manager)
+
+def app_v2():
+    
+    db_manager = DatabaseManager()
+    
+    known_faces, known_names, face_types = db_manager.load_known_faces()
+    
+    if not known_faces:
+        logging.info('No known faces loaded from the database.')
+        return
+
+    face_recognizer = FaceRecognizer(known_faces, known_names, face_types)
+    
+    camera = CameraHandler()
+
+    alert_generator = AlertGenerator()
+
+    while True:
+        try:
+            real_time_capture(camera, face_recognizer, db_manager, alert_generator)
+        except Exception as e:
+             logging.error(str(e))

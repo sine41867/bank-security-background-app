@@ -9,7 +9,6 @@ class AppController:
         self.root.geometry("300x200")
         self.process = None
 
-        
         main_frame = ttk.Frame(root, padding=10)
         main_frame.pack(expand=True)
 
