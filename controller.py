@@ -23,7 +23,7 @@ class AppController:
 
     def start_app(self):
         if self.process is None:
-            self.process = subprocess.Popen([".venv\Scripts\python.exe", "run.py"]) 
+            self.process = subprocess.Popen([".env\Scripts\python.exe", "run.py"]) 
             self.start_button.config(state="disabled")
             self.stop_button.config(state="normal")
             self.restart_button.config(state="normal")
