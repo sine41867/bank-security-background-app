@@ -40,6 +40,7 @@ class DatabaseManager:
                 for row in rows:
                     name, image_data = row
                     image = Image.open(BytesIO(image_data))
+                    image = image.convert("RGB")
                     image = np.array(image)
                     encoding = face_recognition.face_encodings(image)[0]
                     known_faces.append(encoding)
@@ -63,6 +64,8 @@ class DatabaseManager:
 
         except Exception as e:
             logging.info(f"Error loading known faces: {e}")
+            print(str(e))
+
         
         conn.close()
         

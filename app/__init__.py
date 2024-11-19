@@ -25,7 +25,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 behavior_model = tf.keras.models.load_model(r'app\ai_models\model_abnormal_behaviour.h5')
 fear_model = tf.keras.models.load_model(r'app\ai_models\model_fear.h5')
 
-#net = cv2.dnn.readNetFromCaffe("app/utili/deploy.prototxt", "app/utili/mobilenet_iter_73000.caffemodel")
+net = cv2.dnn.readNetFromCaffe("app/utili/deploy.prototxt", "app/utili/mobilenet_iter_73000.caffemodel")
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
