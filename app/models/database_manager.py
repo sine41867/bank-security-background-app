@@ -9,8 +9,8 @@ import logging
 class DatabaseManager:
     def __init__(self):
         self.db_host = "127.0.0.1"
-        self.db_user = "root"
-        self.db_password = ""
+        self.db_user = "user_com3405"
+        self.db_password = "VVjSeTy!RUF]LCm["
         self.db_name = "db_security_system"
 
     def create_conection(self):
