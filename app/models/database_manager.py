@@ -20,6 +20,46 @@ class DatabaseManager:
         except Exception as e:
             logging.info(str(e))
 
+    def load_images(self):
+        conn = self.create_conection()
+        if not conn:
+            return None, None, None
+
+        faces = []
+        
+        try:
+            with conn.cursor() as cursor:
+                query = "SELECT cif_no, photo FROM tbl_blacklisted"
+                cursor.execute(query)
+                rows = cursor.fetchall()
+                
+                face_type = "blacklisted"
+                for row in rows:
+                    name, image_data = row
+                    
+                    faces.append((image_data, name, face_type))
+
+                query = "SELECT robber_id, photo FROM tbl_robbers"
+                cursor.execute(query)
+                rows = cursor.fetchall()
+                
+                face_type = "robber"
+                
+                for row in rows:
+                    name, image_data = row
+                    
+                    faces.append((image_data, name, face_type))
+
+
+        except Exception as e:
+            logging.info(f"Error loading known faces: {e}")
+            print(str(e))
+
+        
+        conn.close()
+        
+        return faces
+
     def load_known_faces(self):
 
         conn = self.create_conection()

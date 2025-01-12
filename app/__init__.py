@@ -6,11 +6,16 @@ import mediapipe as mp
 import tensorflow as tf
 import numpy as np
 import os
+from facenet_pytorch import MTCNN, InceptionResnetV1
+from scipy.spatial.distance import cosine
+import torch
+from PIL import Image
+import io
+
+
 
 from app.models.alert_generator import AlertGenerator
-from app.models.camera_handler import CameraHandler
 from app.models.database_manager import DatabaseManager
-from app.models.face_recognizer import FaceRecognizer
 from app.models.alert import Alert
 
 logging.basicConfig(
@@ -30,6 +35,9 @@ net = cv2.dnn.readNetFromCaffe("app/utili/deploy.prototxt", "app/utili/mobilenet
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
 
+mtcnn = MTCNN(keep_all=True)
+inception_resnet = InceptionResnetV1(pretrained='vggface2').eval()
+
 face_cascade_path = 'haarcascade_frontalface_default.xml'
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + face_cascade_path)
 
@@ -38,13 +46,12 @@ alert_generator = AlertGenerator()
 
 def app():
     
-    known_faces, known_names, face_types = db_manager.load_known_faces()
-    
-    if not known_faces:
-        
-        logging.info('No known faces loaded from the database.')
+    global known_persons
+    known_persons = load_face_emebeddings()
 
-    face_recognizer = FaceRecognizer(known_faces, known_names, face_types)
+    if not known_persons:
+        
+        logging.info('No known persons loaded from the database.')
 
     cap = cv2.VideoCapture(0)
     
@@ -63,8 +70,10 @@ def app():
                 last_frame_time = current_time
                 
                 real_time_abnormal_detector_one_person(frame)
-                real_time_face_detector(frame, face_recognizer)
+                
                 real_time_fear_detector(frame)
+
+                real_time_face_recognizer_test(frame)
 
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
@@ -142,24 +151,7 @@ def real_time_abnormal_detector_one_person(frame):
     alert = Alert("Abnormal", buffer.tobytes(), str(datetime.datetime.now()), "Abnormal behavior detected" )
     alert_generator.generate_alert(alert, db_manager)
 
-def real_time_face_detector(frame, face_recognizer):
-    
-    face_locations, face_names, face_types = face_recognizer.recognize_faces(frame)
 
-    for (top, right, bottom, left), name, face_type in zip(face_locations, face_names, face_types):
-            cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 2)
-            cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
-            
-            if name != "Unknown":
-
-                ret, buffer = cv2.imencode('.jpg', frame)
-                alert = Alert(face_type, buffer.tobytes(), str(datetime.datetime.now()), name )
-
-                #testing
-                print(f'{alert.alert_type}, {alert.description}, {alert.time}')
-
-                alert_generator.generate_alert(alert, db_manager)
-     
 def real_time_fear_detector(frame):
     
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -189,8 +181,8 @@ def real_time_fear_detector(frame):
 
     fear_percentage = 0
 
-    #if face_count > 5:
-    if face_count:
+    if face_count > 3:
+    #if face_count:
         fear_percentage = fear_count*100/face_count
         #print(f'Final fear percentage : {fear_percentage}\n Final fear count : {fear_count}\n Final face count : {face_count}')
 
@@ -215,41 +207,89 @@ def preprocess_input_fear(frame):
     return frame
 
 
-#to remove
-def real_time_capture(camera, face_recognizer, db_manager, alert_generator):
-    frame = camera.get_frame()
+def real_time_face_recognizer_test(frame):
 
-    face_locations, face_names, face_types = face_recognizer.recognize_faces(frame)
+    image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-    for (top, right, bottom, left), name, face_type in zip(face_locations, face_names, face_types):
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-            cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
-            
-            if name != "Unknown":
-               
-                ret, buffer = cv2.imencode('.jpg', frame)
-                alert = Alert(face_type, buffer.tobytes(), str(datetime.datetime.now()), name )
-                
-                alert_generator.generate_alert(alert, db_manager)
+    embeddings, faces = get_embedding(image_rgb)
 
-def app_v2():
-    
-    db_manager = DatabaseManager()
-    
-    known_faces, known_names, face_types = db_manager.load_known_faces()
-    
-    if not known_faces:
-        logging.info('No known faces loaded from the database.')
+    if faces is None or embeddings is None:
         return
-
-    face_recognizer = FaceRecognizer(known_faces, known_names, face_types)
     
-    camera = CameraHandler()
+    for i, face in enumerate(faces):
+        cv2.rectangle(frame, 
+                            (int(face[0]), int(face[1])), 
+                            (int(face[2]), int(face[3])), 
+                            (0, 255, 0), 2)  # Draw bounding box around detected face
 
-    alert_generator = AlertGenerator()
+        if len(known_persons) == 0:
+            return
 
-    while True:
-        try:
-            real_time_capture(camera, face_recognizer, db_manager, alert_generator)
-        except Exception as e:
-             logging.error(str(e))
+        for embedding, name, face_type in known_persons:
+            for emb, face in zip(embeddings, faces):  # Compare all detected faces with known faces
+                match, match_percentage = compare_faces(emb, embedding)
+
+                if match and match_percentage > 70:
+                    cv2.putText(frame, f"{face_type} : {name}", 
+                                (int(face[0]), int(face[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    recognized = True
+
+                    logging.info(f"Recognized: {face_type} {name} with match: {match_percentage:.2f}%")
+
+                    ret, buffer = cv2.imencode('.jpg', frame)
+                    alert = Alert(face_type, buffer.tobytes(), str(datetime.datetime.now()), name )
+
+                    alert_generator.generate_alert(alert, db_manager)
+            
+def load_face_emebeddings():
+
+    loaded_faces = db_manager.load_images()
+
+    known_faces = []
+
+
+    for item in loaded_faces:
+       
+        image = Image.open(io.BytesIO(item[0]))
+        
+        if image.mode == 'RGBA':
+            image = image.convert('RGB')
+        image_array = np.array(image)
+      
+        embeddings, _ = get_embedding(image_array)
+        
+
+        if embeddings is not None:
+            for embedding in embeddings:
+                
+                known_faces.append((embedding,item[1],item[2]))
+            
+    return known_faces
+        
+        
+
+def get_embedding(image):
+    
+    faces, _ = mtcnn.detect(image)
+    if faces is not None:
+        embeddings = inception_resnet(mtcnn(image))  # Extract embeddings
+        return embeddings, faces  # Return both embeddings and face bounding boxes
+    return None, None
+
+def compare_faces(embedding1, embedding2, threshold=0.6):
+    """Compare two face embeddings using cosine distance and return the match percentage."""
+    
+    # If embeddings are tensors, detach and convert to NumPy arrays
+    if isinstance(embedding1, torch.Tensor):
+        embedding1 = embedding1.detach().cpu().numpy()
+    if isinstance(embedding2, torch.Tensor):
+        embedding2 = embedding2.detach().cpu().numpy()
+
+    # Compute cosine distance between the two embeddings
+    distance = cosine(embedding1, embedding2)
+    match_percentage = (1 - distance) * 100  # Convert distance to match percentage
+    #print(f"Distance between embeddings: {distance}, Match Percentage: {match_percentage:.2f}%")
+    
+    if distance < threshold:
+        return True, match_percentage  # Return match status and percentage
+    return False, match_percentage  # Return match status and percentage

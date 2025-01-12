@@ -5,7 +5,7 @@ import subprocess
 class AppController:
     def __init__(self, root):
         self.root = root
-        self.root.title("App Controller")
+        self.root.title("Security System Controller")
         self.root.geometry("300x200")
         self.process = None
 
